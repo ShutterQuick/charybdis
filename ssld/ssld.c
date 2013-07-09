@@ -679,15 +679,16 @@ static void
 ssl_process_accept_cb(rb_fde_t *F, int status, struct sockaddr *addr, rb_socklen_t len, void *data)
 {
 	conn_t *conn = data;
-	char buf[5 + RB_SSL_CERTFP_LEN];
+	char buf[5 + RB_SSL_CERTFP_MAXLEN];
+	size_t length;
 
 	if(status == RB_OK)
 	{
-		if(rb_get_ssl_certfp(F, &buf[5]))
+		if(rb_get_ssl_certfp(F, &buf[5], &length))
 		{
 			buf[0] = 'F';
 			int32_to_buf(&buf[1], conn->id);
-			mod_cmd_write_queue(conn->ctl, buf, sizeof buf);
+			mod_cmd_write_queue(conn->ctl, buf, length + 5);
 		}
 		conn_mod_read_cb(conn->mod_fd, conn);
 		conn_plain_read_cb(conn->plain_fd, conn);
@@ -702,15 +703,16 @@ static void
 ssl_process_connect_cb(rb_fde_t *F, int status, void *data)
 {
 	conn_t *conn = data;
-	char buf[5 + RB_SSL_CERTFP_LEN];
+	char buf[5 + RB_SSL_CERTFP_MAXLEN];
+	size_t length;
 
 	if(status == RB_OK)
 	{
-		if(rb_get_ssl_certfp(F, &buf[5]))
+		if(rb_get_ssl_certfp(F, &buf[5], &length))
 		{
 			buf[0] = 'F';
 			int32_to_buf(&buf[1], conn->id);
-			mod_cmd_write_queue(conn->ctl, buf, sizeof buf);
+			mod_cmd_write_queue(conn->ctl, buf, length + 5);
 		}
 		conn_mod_read_cb(conn->mod_fd, conn);
 		conn_plain_read_cb(conn->plain_fd, conn);
@@ -897,7 +899,7 @@ static void
 ssl_new_keys(mod_ctl_t * ctl, mod_ctl_buf_t * ctl_buf)
 {
 	char *buf;
-	char *cert, *key, *dhparam;
+	char *cert, *key, *dhparam, *ssl_hash;
 
 	buf = &ctl_buf->buf[2];
 	cert = buf;
@@ -907,8 +909,12 @@ ssl_new_keys(mod_ctl_t * ctl, mod_ctl_buf_t * ctl_buf)
 	dhparam = buf;
 	if(strlen(dhparam) == 0)
 		dhparam = NULL;
+	buf += strlen(dhparam) + 1;
+	ssl_hash = buf;
+	if (!strlen(ssl_hash))
+		ssl_hash = NULL;
 
-	if(!rb_setup_ssl_server(cert, key, dhparam))
+	if(!rb_setup_ssl_server(cert, key, dhparam, ssl_hash))
 	{
 		const char *invalid = "I";
 		mod_cmd_write_queue(ctl, invalid, strlen(invalid));

@@ -321,7 +321,7 @@ rb_load_file_into_datum_t(const char *file)
 }
 
 int
-rb_setup_ssl_server(const char *cert, const char *keyfile, const char *dhfile)
+rb_setup_ssl_server(const char *cert, const char *keyfile, const char *dhfile, const char *hash_name)
 {
 	int ret;
 	gnutls_datum_t *d_cert, *d_key;
@@ -552,7 +552,7 @@ rb_get_ssl_strerror(rb_fde_t *F)
 }
 
 int
-rb_get_ssl_certfp(rb_fde_t *F, uint8_t certfp[RB_SSL_CERTFP_LEN])
+rb_get_ssl_certfp(rb_fde_t *F, uint8_t *certfp, size_t *certfp_size)
 {
 	gnutls_x509_crt_t cert;
 	unsigned int cert_list_size;

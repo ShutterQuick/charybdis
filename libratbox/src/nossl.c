@@ -34,7 +34,7 @@
 #include <commio-ssl.h>
 
 int
-rb_setup_ssl_server(const char *cert, const char *keyfile, const char *dhfile)
+rb_setup_ssl_server(const char *cert, const char *keyfile, const char *dhfile, const char *hash_name)
 {
 	errno = ENOSYS;
 	return 0;
@@ -101,7 +101,7 @@ rb_get_ssl_strerror(rb_fde_t *F)
 }
 
 int
-rb_get_ssl_certfp(rb_fde_t *F, uint8_t certfp[RB_SSL_CERTFP_LEN])
+rb_get_ssl_certfp(rb_fde_t *F, uint8_t *certfp, size_t *certfp_size)
 {
 	return 0;
 }

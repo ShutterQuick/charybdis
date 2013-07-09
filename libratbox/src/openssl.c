@@ -37,6 +37,8 @@
 
 static SSL_CTX *ssl_server_ctx;
 static SSL_CTX *ssl_client_ctx;
+static const EVP_MD *ssl_digest;
+static unsigned char ssl_md[EVP_MAX_MD_SIZE];
 static int libratbox_index = -1;
 
 static unsigned long
@@ -328,7 +330,7 @@ rb_init_ssl(void)
 
 
 int
-rb_setup_ssl_server(const char *cert, const char *keyfile, const char *dhfile)
+rb_setup_ssl_server(const char *cert, const char *keyfile, const char *dhfile, const char *hash_name)
 {
 	DH *dh;
 	unsigned long err;
@@ -386,6 +388,21 @@ rb_setup_ssl_server(const char *cert, const char *keyfile, const char *dhfile)
 				   dhfile, get_ssl_error(err));
 		}
 	}
+
+	/* If no digest is provided, default to SHA1 */
+	if (!hash_name)
+	{
+		ssl_digest = EVP_sha1();
+		return 1;
+	}
+
+	ssl_digest = EVP_get_digestbyname(hash_name);
+	if (!ssl_digest)
+	{
+		rb_lib_log("rb_setup_ssl_server: Not a recognized hash: %s", hash_name);
+		return 0;	
+	}
+
 	return 1;
 }
 
@@ -626,7 +643,7 @@ rb_get_ssl_strerror(rb_fde_t *F)
 }
 
 int
-rb_get_ssl_certfp(rb_fde_t *F, uint8_t certfp[RB_SSL_CERTFP_LEN])
+rb_get_ssl_certfp(rb_fde_t *F, uint8_t *certfp, size_t *fp_size)
 {
 	X509 *cert;
 	int res;
@@ -643,8 +660,12 @@ rb_get_ssl_certfp(rb_fde_t *F, uint8_t certfp[RB_SSL_CERTFP_LEN])
 				res == X509_V_ERR_UNABLE_TO_VERIFY_LEAF_SIGNATURE ||
 				res == X509_V_ERR_DEPTH_ZERO_SELF_SIGNED_CERT)
 		{
-			memcpy(certfp, cert->sha1_hash, RB_SSL_CERTFP_LEN);
-			return 1;
+			if ((X509_digest(cert, ssl_digest, ssl_md, fp_size) > 0) && (*fp_size <= RB_SSL_CERTFP_MAXLEN))
+			{
+				memcpy(certfp, ssl_md, *fp_size);
+				X509_free(cert);
+				return 1;
+			}
 		}
 		X509_free(cert);
 	}
